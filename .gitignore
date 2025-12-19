@@ -1,4 +1,45 @@
+
 node_modules
 dist
 dist-electron
 release
+=======
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Electron build
+dist/
+build/
+release/
+out/
+
+# Vite / Webpack
+.vite/
+.cache/
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Linux
+*.AppImage
+*.deb
+*.rpm
+
+# Editor
+.vscode/
+.idea/
+
+# Temporary
+tmp/
