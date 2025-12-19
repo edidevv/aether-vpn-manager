@@ -5,9 +5,9 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
-// Flags pentru performanta si stabilitate
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
+// Flags pentru performanta grafica si prevenire freeze
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.disableHardwareAcceleration();
 
@@ -40,13 +40,12 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false,
-      backgroundThrottling: false
+      backgroundThrottling: false // CRITIC: Graficul merge si cand nu esti pe app
     },
   })
 
   win.once('ready-to-show', () => {
       win?.show();
-      // Verificam la start daca a ramas ceva agatat, dar SAFE
       safeCleanup();
   })
 
@@ -64,8 +63,6 @@ const execute = (command: string): Promise<string> => {
          if (command.startsWith('ping') || command.includes('delete') || command.includes('show')) {
              resolve(stdout || ''); return;
          }
-         // Nu dam reject violent ca sa nu crape UI-ul
-         console.log(`Command failed safe: ${command}`);
          resolve('');
          return;
       }
@@ -74,38 +71,24 @@ const execute = (command: string): Promise<string> => {
   });
 };
 
-// --- SAFE CLEANUP (FIX PENTRU NET) ---
-// Sterge DOAR conexiunile de tip VPN/Wireguard, nu Ethernet/WiFi
 const safeCleanup = async () => {
     try {
-        const output = await execute('nmcli -t -f NAME,TYPE,UUID connection show --active');
+        const output = await execute('nmcli -t -f NAME,TYPE connection show --active');
         const lines = output.split('\n');
-
-        let foundVpn = false;
-
         for (const line of lines) {
             const parts = line.split(':');
             if (parts.length < 2) continue;
-            const name = parts[0];
-            const type = parts[1];
-
-            // Daca gasim un VPN activ
-            if (type === 'wireguard' || type === 'vpn' || type === 'tun') {
-                console.log(`Found active VPN: ${name}`);
-                currentConnectionName = name;
+            if (parts[1] === 'wireguard' || parts[1] === 'vpn' || parts[1] === 'tun') {
+                currentConnectionName = parts[0];
                 startTrafficMonitor();
-                win?.webContents.send('vpn:status', { connected: true, server: name });
-                foundVpn = true;
+                win?.webContents.send('vpn:status', { connected: true, server: parts[0] });
+                return;
             }
         }
-
-        if (!foundVpn) {
-            win?.webContents.send('vpn:status', { connected: false });
-        }
-    } catch (e) { console.error("Cleanup error:", e); }
+        win?.webContents.send('vpn:status', { connected: false });
+    } catch {}
 };
 
-// --- TRAFFIC MONITOR ---
 const getTraffic = () => {
     try {
         const data = fs.readFileSync('/proc/net/dev', 'utf-8');
@@ -124,7 +107,7 @@ const getTraffic = () => {
             }
         }
         return { rx: totalRx, tx: totalTx };
-    } catch (e) { return { rx: 0, tx: 0 }; }
+    } catch { return { rx: 0, tx: 0 }; }
 }
 
 const startTrafficMonitor = () => {
@@ -135,28 +118,25 @@ const startTrafficMonitor = () => {
         const down = Math.max(0, current.rx - lastRx);
         const up = Math.max(0, current.tx - lastTx);
         lastRx = current.rx; lastTx = current.tx;
-        if (!win?.isMinimized()) win?.webContents.send('stats:update', { down, up });
+        // Trimitem update chiar daca e 0, ca sa "curga" graficul
+        win?.webContents.send('stats:update', { down, up });
     }, 1000);
 }
 
-const stopTrafficMonitor = () => { if (trafficInterval) clearInterval(trafficInterval); }
+const stopTrafficMonitor = () => {
+    if (trafficInterval) clearInterval(trafficInterval);
+    // Resetam graficul vizual la 0
+    win?.webContents.send('stats:update', { down: 0, up: 0 });
+}
 
-// --- IPC HANDLERS ---
-
-// 1. MULLVAD CHECK (Rezolva eroarea ta)
 ipcMain.handle('vpn:mullvad-check', async () => {
     try {
         const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), 3000);
+        const id = setTimeout(() => controller.abort(), 2000);
         const req = await fetch('https://am.i.mullvad.net/json', { signal: controller.signal });
         clearTimeout(id);
         const data = await req.json();
-        return {
-            connected: data.mullvad_exit_ip,
-            ip: data.ip,
-            country: data.country,
-            server: data.hostname
-        };
+        return { connected: data.mullvad_exit_ip, ip: data.ip, country: data.country };
     } catch { return { connected: false }; }
 });
 
@@ -171,60 +151,27 @@ ipcMain.handle('vpn:scan-dir', async (_, dirPath) => {
     } catch { return []; }
 });
 
-ipcMain.handle('vpn:ping', async (_, ip) => {
-    try { const o = await execute(`ping -c 1 -W 1 ${ip}`); const m = o.match(/time=([0-9.]+)/); return m ? Math.round(parseFloat(m[1])) : 999; } catch { return 999; }
-});
-
 ipcMain.handle('vpn:connect', async (_, config) => {
   try {
-    // 1. Daca suntem deja conectati la ceva, ne deconectam SAFE
-    if (currentConnectionName) {
-        await execute(`nmcli connection down id "${currentConnectionName}"`);
-        // Stergem doar daca e sigur un profil importat temporar
-        await execute(`nmcli connection delete id "${currentConnectionName}"`);
-    }
-
+    if (currentConnectionName) await execute(`nmcli connection delete id "${currentConnectionName}"`);
     const connName = config.name;
-    // Stergem preventiv profilul vechi cu acelasi nume ca sa facem import curat
     await execute(`nmcli connection delete id "${connName}"`);
-
-    // Import
     await execute(`nmcli connection import type ${config.type} file "${config.path}"`);
-
-    // Connect
     await execute(`nmcli connection up id "${connName}"`);
-
     currentConnectionName = connName;
     startTrafficMonitor();
     new Notification({ title: 'Aether VPN', body: 'Secured' }).show();
     return { success: true };
-  } catch (e: any) {
-      return { success: false, error: e.message || 'Failed' };
-  }
+  } catch { return { success: false }; }
 });
 
-// --- SAFE DISCONNECT (CRITIC) ---
 ipcMain.handle('vpn:disconnect', async () => {
     stopTrafficMonitor();
-
-    // Stergem doar ce stim ca e VPN
     if (currentConnectionName) {
         await execute(`nmcli connection down id "${currentConnectionName}"`);
         await execute(`nmcli connection delete id "${currentConnectionName}"`);
         currentConnectionName = null;
-    } else {
-        // Fallback safe: cautam doar wireguard/vpn active
-        const output = await execute('nmcli -t -f NAME,TYPE connection show --active');
-        const lines = output.split('\n');
-        for(const line of lines) {
-            const [name, type] = line.split(':');
-            if (type === 'wireguard' || type === 'vpn' || type === 'tun') {
-                await execute(`nmcli connection down id "${name}"`);
-                await execute(`nmcli connection delete id "${name}"`);
-            }
-        }
     }
-
     win?.webContents.send('vpn:status', { connected: false });
     return { success: true };
 });
