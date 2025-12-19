@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, Settings, Globe, Scan, Minus, X,
-  ArrowUp, ArrowDown, Power, CheckCircle2, Volume2, ShieldAlert
+  ArrowUp, ArrowDown, Power, CheckCircle2, Volume2, ShieldAlert, Cpu
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import ParticleBackground from './components/ParticleBackground';
@@ -14,7 +14,13 @@ import { LeakDetector } from './components/LeakDetector';
 import { ProtonMap } from './components/ProtonMap';
 import { ServerDrawer } from './components/ServerDrawer';
 import { SettingsView } from './components/SettingsView';
+import { SeasonalOverlay } from './components/SeasonalOverlay'; // IMPORT NOU
 import { detectCity } from './utils/geoData';
+
+// --- CONFIGURATIE TEME ---
+// Optiuni: 'christmas', 'halloween', 'easter', 'none'
+// SCHIMBA AICI PENTRU A ACTIVA SARBATORILE
+const CURRENT_THEME: 'christmas' | 'halloween' | 'easter' | 'none' = 'christmas';
 
 const VPN_DIR = '/home/xvxvxv/codes/vpn';
 
@@ -62,7 +68,6 @@ function App() {
   const handleConnect = async (e: React.MouseEvent) => {
     if (!selectedServer) return;
 
-    // RIPPLE EFFECT
     const rect = (e.target as HTMLElement).closest('button')?.getBoundingClientRect();
     if(rect) {
         const x = e.clientX - rect.left;
@@ -96,8 +101,12 @@ function App() {
   return (
     <div className="h-screen w-screen bg-[#09090b] text-white overflow-hidden flex flex-col relative font-sans">
       <div className="absolute inset-0 z-0"><ParticleBackground /></div>
+
+      {/* SEASONAL THEME OVERLAY */}
+      <SeasonalOverlay theme={CURRENT_THEME} />
+
       <div className="h-10 flex justify-between items-center px-4 z-50 bg-black/20 backdrop-blur-md border-b border-white/5" style={{WebkitAppRegion: 'drag'} as any}>
-         <span className="text-xs font-bold text-gray-500 tracking-[0.2em]">Aether VPN Manager</span>
+         <span className="text-xs font-bold text-gray-500 tracking-[0.2em]">AETHER PRO</span>
          <div className="flex items-center gap-2 no-drag" style={{WebkitAppRegion: 'no-drag'} as any}><button onClick={()=>window.ipcRenderer.invoke('app:minimize')} className="p-1 hover:bg-white/10 rounded"><Minus className="w-4 h-4"/></button><button onClick={()=>window.ipcRenderer.invoke('app:close')} className="p-1 hover:bg-red-500/80 rounded"><X className="w-4 h-4"/></button></div>
       </div>
 
@@ -118,6 +127,7 @@ function App() {
                         <div className="flex items-center gap-2 mb-2"><div className={clsx("w-3 h-3 rounded-full transition-colors duration-500", connected ? "bg-emerald-500 shadow-[0_0_10px_#10b981]" : "bg-red-500")}></div><span className={clsx("text-xs font-mono font-bold tracking-wider transition-colors duration-500", connected ? "text-emerald-500" : "text-red-500")}>{connected ? "SECURED" : "UNPROTECTED"}</span></div>
                         {connected && realInfo ? ( <div className="flex flex-col gap-1"><h1 className="text-4xl font-bold text-white">{realInfo.country}</h1><div className="text-gray-400 text-sm flex gap-3"><span>{realInfo.ip}</span><span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Verified</span></div></div> ) : ( <div className="flex flex-col gap-1"><h1 className="text-4xl font-bold">{selectedServer?.prettyCity || 'Select Server'}</h1><span className="text-emerald-400 text-sm">Load: {selectedServer?.load || 0}%</span></div> )}
                     </div>
+                    {connected && <div className="flex gap-4"><div className="text-right"><div className="text-xs text-gray-500">DL</div><div className="text-emerald-400 font-mono">{downSpeed.toFixed(1)} KB/s</div></div></div>}
                 </div>
 
                 <div className="flex-1 flex flex-col items-center justify-center relative z-20">
@@ -131,15 +141,20 @@ function App() {
                           </div>
                       </div>
                    </button>
-                   {/* GRAFIC MODIFICAT */}
-                   <TrafficGraph downloadSpeed={downSpeed} uploadSpeed={upSpeed} />
+                   <div className="w-full max-w-2xl mt-12 h-32"><TrafficGraph downloadSpeed={downSpeed} uploadSpeed={upSpeed} /></div>
                 </div>
               </motion.div>
             )}
 
-            {view === 'map' && <motion.div key="map" className="h-full w-full relative z-20">{MemoMap}<ServerDrawer isOpen={!!activeCityGroup} onClose={()=>setActiveCityGroup(null)} cityName={activeCityGroup?.name} countryName={activeCityGroup?.country} servers={activeCityGroup?.servers||[]} onSelect={(s:any)=>{setSelectedServer(s); setView('dashboard'); setActiveCityGroup(null);}} currentId={selectedServer?.id}/></motion.div>}
+            {view === 'map' && (
+                <motion.div key="map" className="h-full w-full relative z-20">
+                    {MemoMap}
+                    <ServerDrawer isOpen={!!activeCityGroup} onClose={()=>setActiveCityGroup(null)} cityName={activeCityGroup?.name} countryName={activeCityGroup?.country} servers={activeCityGroup?.servers||[]} onSelect={(s:any)=>{setSelectedServer(s); setView('dashboard'); setActiveCityGroup(null);}} currentId={selectedServer?.id}/>
+                </motion.div>
+            )}
+
             {view === 'security' && <motion.div key="sec" className="h-full z-20"><LeakDetector /></motion.div>}
-            {view === 'settings' && <motion.div key="settings" className="h-full z-20"><SettingsView settings={settings} setSettings={setSettings} VPN_DIR={VPN_DIR} appVersion="3.8 Final" /></motion.div>}
+            {view === 'settings' && <motion.div key="settings" className="h-full z-20"><SettingsView settings={settings} setSettings={setSettings} VPN_DIR={VPN_DIR} appVersion="4.0 Seasonal" /></motion.div>}
           </AnimatePresence>
         </div>
       </div>

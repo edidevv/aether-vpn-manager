@@ -5,8 +5,13 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
-    "preview": "vite preview"
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "build:electron": "electron-builder",
+    "build:all": "npm run build && npm run build:electron",
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:appimage": "npm run build && electron-builder --linux AppImage",
+    "build:deb": "npm run build && electron-builder --linux deb"
   },
   "dependencies": {
     "clsx": "^2.1.0",
@@ -34,5 +39,44 @@
     "vite": "^5.0.11",
     "vite-plugin-electron": "^0.15.4",
     "vite-plugin-electron-renderer": "^0.14.5"
+  },
+  "build": {
+    "appId": "com.aether.vpn",
+    "productName": "Aether VPN",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "build/icon.png",
+      "category": "Network",
+      "desktop": {
+        "Name": "Aether VPN",
+        "Comment": "Professional VPN Manager",
+        "Categories": "Network;Security;"
+      }
+    },
+    "appImage": {
+      "license": "LICENSE"
+    },
+    "deb": {
+      "depends": [
+        "gconf2",
+        "gconf-service",
+        "libnotify4",
+        "libappindicator1",
+        "libxtst6",
+        "libnss3"
+      ]
+    }
   }
 }
