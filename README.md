@@ -1,4 +1,10 @@
-# 🚀 Aether VPN Manager
+# Aether VPN Manager
+
+## ⚠️ Disclaimer
+
+Aether is a VPN client/manager, not a VPN service.
+Security and privacy depend on the user's VPN configuration and provider.
+
 
 <div align="center">
 
@@ -12,7 +18,6 @@
 
 [![GitHub license](https://img.shields.io/github/license/edidevv/aether-vpn-manager?style=for-the-badge)](LICENSE)
 
-**A cross-platform desktop application for seamless VPN connection management.**
 
 </div>
 
@@ -23,15 +28,19 @@ Aether VPN Manager is a robust desktop application designed to provide a user-fr
 ## ✨ Features
 
 -   🎯 **Intuitive User Interface**: A clean and modern design built with React and Tailwind CSS for easy navigation.
--   🖥️ **Cross-Platform Compatibility**: Available for Windows, macOS, and Linux thanks to Electron.
 -   ⚡ **Fast Development Experience**: Leveraging Vite for rapid development and builds.
--   🔄 **Automatic Updates**: Seamless application updates powered by `electron-updater` (TODO: Integration details and update server setup would be needed).
--   🔐 **VPN Management**: Core functionality to handle VPN connections (connect, disconnect, list available configurations).
-    *_(Specific VPN protocols or configurations managed are not detailed in the provided code structure but are the implied purpose.)_*
+-   🔐 **VPN Management**:
+
+## 🔐 Security & Privacy
+
+- Aether does NOT provide VPN servers.
+- All VPN configurations are provided by the user.
+- No traffic, logs, or personal data are collected.
+- All operations are executed locally on the user's machine.
+
 
 ## 🖥️ Screenshots
 
-<!-- TODO: Add actual screenshots of the application running -->
 
 ![Screenshot 1](https://via.placeholder.com/800x450?text=Application+Screenshot+1)
 
